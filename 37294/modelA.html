@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spelling Game</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(45deg, #ff9a9e, #fad0c4);
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .game-container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    .welcome-text {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+
+    .welcome-text span {
+      animation: color-change 10s infinite;
+    }
+
+    @keyframes color-change {
+      0% {
+        color: #333;
+      }
+
+      50% {
+        color: #ff6b6b;
+      }
+
+      100% {
+        color: #333;
+      }
+    }
+
+    button {
+      background: #4ecdc4;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+
+    button:hover {
+      background: #45b7af;
+    }
+
+    .options button {
+      margin: 5px;
+    }
+
+    .word-options button {
+      width: 45%;
+      margin: 5px;
+    }
+
+    .result-table {
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    .result-table,
+    .result-table th,
+    .result-table td {
+      border: 1px solid #ddd;
+      border-collapse: collapse;
+    }
+
+    .result-table th,
+    .result-table td {
+      padding: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="game-container" id="gameContainer">
+    <div id="welcomeScreen">
+      <p class="welcome-text"><span>Press</span> <span>the</span> <span>start</span> <span>button</span>
+        <span>below</span> <span>to</span> <span>begin!</span></p>
+      <button id="startButton">▶️</button>
+    </div>
+
+    <div id="selectionScreen" style="display:none;">
+      <h2>Choose Game Duration:</h2>
+      <div class="options">
+        <button onclick="startGame(10)">10s</button>
+        <button onclick="startGame(30)">30s</button>
+        <button onclick="startGame(60)">1min</button>
+      </div>
+    </div>
+
+    <div id="gameScreen" style="display:none;">
+      <h3>Listen and Choose:</h3>
+      <button onclick="speakCurrentWord()">🔊</button>
+      <div id="wordOptions" class="word-options"></div>
+      <p id="timer">Time left: <span id="time">0</span>s</p>
+    </div>
+
+    <div id="resultScreen" style="display:none;">
+      <h2>Results</h2>
+      <p id="resultText"></p>
+      <button onclick="restartGame()">Restart</button>
+      <table id="mistakesTable" class="result-table"></table>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('startButton').addEventListener('click', () => {
+      document.getElementById('welcomeScreen').style.display = 'none';
+      document.getElementById('selectionScreen').style.display = 'block';
+    });
+
+    let words = [];
+    let correctWords = [];
+    let wrongChoices = [];
+    let currentWordIndex = 0;
+    let timer;
+
+    // Assume this function fetches words from an API
+    function fetchWords() {
+      return fetch('https://random-word-api.herokuapp.com/word?number=10')
+        .then(response => response.json())
+        .then(data => {
+          words = data.map(word => [word, ...generateMisspellings(word)]);
+        });
+    }
+
+    function generateMisspellings(word) {
+      // Simple misspelling generation logic
+      let misspellings = [];
+      for (let i = 0; i < 2; i++) {
+        let misspelled = word.split('');
+        let idx = Math.floor(Math.random() * word.length);
+        misspelled[idx] = String.fromCharCode(97 + Math.floor(Math.random() * 26)); // Random lowercase letter
+        misspellings.push(misspelled.join(''));
+      }
+      return misspellings;
+    }
+
+    function startGame(duration) {
+      document.getElementById('selectionScreen').style.display = 'none';
+      document.getElementById('gameScreen').style.display = 'block';
+      fetchWords().then(() => {
+        startRound();
+        timer = setInterval(updateTimer, 1000, duration);
+      });
+    }
+
+    function speakCurrentWord() {
+      speak(words[currentWordIndex][0]);
+    }
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function startRound() {
+      if (currentWordIndex < words.length) {
+        let wordOptions = document.getElementById('wordOptions');
+        wordOptions.innerHTML = '';
+        words[currentWordIndex].forEach((option, index) => {
+          let btn = document.createElement('button');
+          btn.textContent = option;
+          btn.onclick = () => checkAnswer(index);
+          wordOptions.appendChild(btn);
+        });
+        speakCurrentWord();
+      } else {
+        endGame();
+      }
+    }
+
+    function checkAnswer(index) {
+      if (index === 0) {
+        correctWords.push(words[currentWordIndex][0]);
+      } else {
+        wrongChoices.push({ chosen: words[currentWordIndex][index], correct: words[currentWordIndex][0] });
+      }
+      currentWordIndex++;
+      startRound();
+    }
+
+    function updateTimer(duration) {
+      let timeLeft = parseInt(document.getElementById('time').textContent);
+      if (timeLeft > 0) {
+        document.getElementById('time').textContent = timeLeft - 1;
+      } else {
+        clearInterval(timer);
+        endGame();
+      }
+    }
+
+    function endGame() {
+      document.getElementById('gameScreen').style.display = 'none';
+      document.getElementById('resultScreen').style.display = 'block';
+      document.getElementById('resultText').textContent = `${correctWords.length} out of ${words.length} words you selected were correct.`;
+
+      let table = document.getElementById('mistakesTable');
+      wrongChoices.forEach(item => {
+        let row = table.insertRow();
+        row.insertCell(0).textContent = item.chosen;
+        row.insertCell(1).textContent = item.correct;
+      });
+    }
+
+    function restartGame() {
+      correctWords = [];
+      wrongChoices = [];
+      currentWordIndex = 0;
+      document.getElementById('resultScreen').style.display = 'none';
+      document.getElementById('selectionScreen').style.display = 'block';
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/speech-synthesis@1.0.0/dist/speech-synthesis.min.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spelling Game</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <style>
+    body,
+    html {
+      height: 100%;
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2);
+    }
+
+    .container {
+      text-align: center;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    #welcome-text {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+
+    .color-change {
+      animation: colorChange 2s infinite;
+    }
+
+    @keyframes colorChange {
+      0% {
+        color: black;
+      }
+
+      50% {
+        color: #ff6b6b;
+      }
+
+      100% {
+        color: black;
+      }
+    }
+
+    button {
+      background: none;
+      border: 2px solid #4ecdc4;
+      color: #4ecdc4;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background: #4ecdc4;
+      color: white;
+    }
+
+    #game-area,
+    #results {
+      display: none;
+    }
+
+    .options button {
+      margin: 5px;
+    }
+
+    .word-list {
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container" id="welcome">
+    <h1 id="welcome-text" class="color-change">Press the start button below to begin!</h1>
+    <button id="start-game"><i class="fas fa-play"></i></button>
+  </div>
+
+  <div class="container" id="game-area">
+    <div class="time-options">
+      <button data-time="10">10s</button>
+      <button data-time="30">30s</button>
+      <button data-time="60">1min</button>
+    </div>
+    <h2>Click on the correct spelling:</h2>
+    <button id="read-word"><i class="fas fa-volume-up"></i> Read Word</button>
+    <div class="word-list" id="word-options"></div>
+  </div>
+
+  <div class="container" id="results">
+    <h2 id="score"></h2>
+    <table border="1">
+      <tr>
+        <th>Your Choice</th>
+        <th>Correct Word</th>
+      </tr>
+      <tbody id="mistakes"></tbody>
+    </table>
+    <button id="restart">Restart</button>
+  </div>
+
+  <script>
+    const synth = window.speechSynthesis;
+    let words = [];
+    let currentWord;
+    let correctCount = 0;
+    let totalWords = 0;
+    let mistakes = [];
+
+    // Fetch words from an API (example using a placeholder API)
+    fetch('https://api.example.com/words') // Replace with real API
+      .then(response => response.json())
+      .then(data => {
+        words = data;
+        document.getElementById('welcome').style.display = 'block';
+      });
+
+    document.getElementById('start-game').addEventListener('click', startGame);
+
+    function startGame() {
+      document.getElementById('welcome').style.display = 'none';
+      document.getElementById('game-area').style.display = 'block';
+    }
+
+    document.querySelectorAll('.time-options button').forEach(button => {
+      button.addEventListener('click', function () {
+        let time = parseInt(this.getAttribute('data-time'));
+        setupGame(time);
+      });
+    });
+
+    function setupGame(time) {
+      // Here you would set up your game logic, like setting a timer, etc.
+      displayWord();
+    }
+
+    function displayWord() {
+      currentWord = words[Math.floor(Math.random() * words.length)];
+      let options = [currentWord.correct, ...currentWord.wrong];
+      options.sort(() => Math.random() - 0.5); // Shuffle options
+
+      let wordOptionsHTML = options.map(option =>
+        `<button onclick="checkAnswer('${option}')">${option}</button>`
+      ).join('');
+      document.getElementById('word-options').innerHTML = wordOptionsHTML;
+    }
+
+    function checkAnswer(choice) {
+      totalWords++;
+      if (choice === currentWord.correct) {
+        correctCount++;
+      } else {
+        mistakes.push({ chosen: choice, correct: currentWord.correct });
+      }
+      if (totalWords < 5) { // Example: game ends after 5 words
+        displayWord();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      document.getElementById('game-area').style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('score').textContent = `${correctCount} out of ${totalWords} words you selected were correct.`;
+      let mistakesHTML = mistakes.map(mistake =>
+        `<tr><td>${mistake.chosen}</td><td>${mistake.correct}</td></tr>`
+      ).join('');
+      document.getElementById('mistakes').innerHTML = mistakesHTML;
+    }
+
+    document.getElementById('read-word').addEventListener('click', () => {
+      let utterance = new SpeechSynthesisUtterance(currentWord.correct);
+      synth.speak(utterance);
+    });
+
+    document.getElementById('restart').addEventListener('click', () => {
+      correctCount = totalWords = 0;
+      mistakes = [];
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('game-area').style.display = 'block';
+      displayWord();
+    });
+  </script>
+
+</body>
+
+</html>
